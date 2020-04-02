@@ -37,7 +37,7 @@ cf.go_offline()
 
 #Other Imports
 import re
-from datetime import date
+import datetime
 
 """ I follow a standard approach to all ML/AI models which includes 8 steps as follows:-
 1) Ask Question
@@ -79,16 +79,15 @@ Casesdf = Casesdf.rename(columns={'CountryNew':'Country'})
 """We also take the UN data which provides statistics on every country wrt to their growth, polpulation, 
 demographics etc
 """
-
-xlsfile1 = pd.ExcelFile("C:\\Users\\bhaktvin\\Desktop\\Covid19CasesNew.xlsx")
-Worlddf = xlsfile1.parse('World')
+url = "https://github.com/vinayakbhakta9/Coronavirus/blob/master/Covid19CasesNew.xlsx?raw=true"
+Worlddf = pd.read_excel(url,sheet_name='World')
 Worlddf.info()
 
 """We also try to get the meat consumption pattern to see if countries food habits have anything to do 
 with the spread of the virus in those countries"""
 
-xlsfile2 = pd.ExcelFile("C:\\Users\\bhaktvin\\Desktop\\WorldPoultry.xlsx")
-Meetdf = xlsfile2.parse('Sheet1')
+url = "https://github.com/vinayakbhakta9/Coronavirus/blob/master/WorldPoultry.xlsx?raw=true"
+Meetdf = pd.read_excel(url,sheet_name='Sheet1')
 Meetdf.info()
 
 #Calculating Age of the virus in the respective country and rank orders then picks rank 1
@@ -97,8 +96,14 @@ Cdfgr1 = CasedfFil.groupby('Country')
 CasedfFil['Rn'] = Cdfgr1['dateRep'].rank(method='min')
 CasedfFil = CasedfFil[CasedfFil['Rn']==1]
 
-#age calculation
-CasedfFil['Today'] = pd.to_datetime('2020-03-30')
+#age calculation. First gets todays date and then substract with first date
+
+def today_date():
+    date=datetime.datetime.now().date()
+    date=pd.to_datetime(date)
+    return date
+
+CasedfFil['Today'] = today_date()
 CasedfFil['Diff'] = CasedfFil['Today'] - CasedfFil['dateRep']
 
 #joining with the world df
@@ -173,7 +178,7 @@ model.fit(dfn,lsd)
 
 features = dfn.columns
 importances = model.feature_importances_
-indices = np.argsort(importances)[-15:]  # top 10 features
+indices = np.argsort(importances)[-18:]  # top 10 features
 plt.title('Feature Importances by Cases')
 plt.barh(range(len(indices)), importances[indices], color='b', align='center')
 plt.yticks(range(len(indices)), [features[i] for i in indices])
@@ -181,7 +186,6 @@ plt.xlabel('Relative Importance')
 plt.show()
 
 compcasedf = pd.DataFrame( {"Column": dfn.columns, "importance": importances}).sort_values('importance', ascending=False)
-compcasedf.to_csv('C:\\Users\\bhaktvin\\Desktop\\caseimp.csv')
 
 #Finding feature importance on number of deaths with the 53 features
 
@@ -195,7 +199,7 @@ model.fit(dfn,lsd)
 
 features = dfn.columns
 importances = model.feature_importances_
-indices = np.argsort(importances)[-15:]  # top 10 features
+indices = np.argsort(importances)[-18:]  # top 10 features
 plt.title('Feature Importances by Deaths')
 plt.barh(range(len(indices)), importances[indices], color='g', align='center')
 plt.yticks(range(len(indices)), [features[i] for i in indices])
@@ -203,97 +207,8 @@ plt.xlabel('Relative Importance')
 plt.show()
 
 compdf = pd.DataFrame( {"Column": dfn.columns, "importance": importances}).sort_values('importance', ascending=False)
-compdf.to_csv('C:\\Users\\bhaktvin\\Desktop\\caseimp.csv')
-
-#---------------------------------------------------------------------------------------------------
-#5 Preprocess Data
-#---------------------------------------------------------------------------------------------------
-#Randomly shuffle the original dataset. 
-np.random.shuffle(Worlddf.values)
-Worlddf
-
-x_transformed = Worlddf.drop(['Region','cases','deaths'], axis=1)
-y = Worlddf['cases']
-
-
-"""x_transformed = Worlddf[[
-'Country',
-'Age',
-'Economy_From_Agriculture',
-'Poultry_Consumption',
-'Mutton_Consumption',
-'No_Of_Internet_Subscription',
-'Population_Density',
-'Urban_Population_Percent',
-'GDP_Growth_Rate',
-'No_Of_Threatened_Species',
-'Population_Growth_Rate',
-'Refugees',
-'Food_Production_Index',
-'PercentAge_Morethan60',
-'Economy_From_Servicing',
-'Sex_Ratio_Mto100F'
-]]"""
-
-Worlddf.info()
-x_transformed.info()
-
-#---------------------------------------------------------------------------------------------------
-#6 Split Data
-#---------------------------------------------------------------------------------------------------
-
-from sklearn.model_selection import train_test_split
-x_train, x_test, y_train, y_test = train_test_split(x_transformed,y, random_state=101, test_size=0.3)
-
-x_train_new = x_train.drop('Country', axis=1)
-x_test_new = x_test.drop('Country', axis=1)
-
-#---------------------------------------------------------------------------------------------------
-#7 Apply ML/AI - (Logistic Regression, KNN, Random Forest Methods)
-#---------------------------------------------------------------------------------------------------
-
-# Now a bit of machine learning using knn. 
-# Then use an elbow method to determine the best number for maximum accuracy of the score.
-
-# ploting the Accuracy values at the different values of k
-N_grid = range(1,40)
-
-oosAccuracyList = []
-for eachN in N_grid:
-#      fit the nearest neighbour for each
-#       value in the set of candidate values.
-    neigh = KNeighborsRegressor(n_neighbors= eachN)
-    neigh.fit(x_test_new, y_test) 
-    oosPred_train = neigh.predict(x_test_new)
-    oosAccuracytrain = np.mean(y_test == oosPred_train)
-    oosAccuracyList.append(oosAccuracytrain)   
-  
-plt.plot(N_grid, oosAccuracyList)
-
-#If you observe the max straight line is from 1 to 2. So 1 is the best value of k
-
-from sklearn.neighbors import KNeighborsRegressor
-neigh = KNeighborsRegressor(n_neighbors=1)
-neigh.fit(x_train_new, y_train) 
-neigh.fit
-
-pred_testdata = neigh.predict(x_test_new)
-pred_testdata
-
-#Do a grid comparison of actuals vs predicted
-
-compdf = pd.DataFrame( {"Country": x_test['Country'], "observed cases": y_test, "predicted cases": pred_testdata})
-compdf
-
-#Evaluation metrics for the model. 
-from sklearn import metrics
-
-metrics.mean_absolute_error(y_test,pred_testdata)
-metrics.mean_squared_error(y_test,pred_testdata)
-np.sqrt(metrics.mean_absolute_error(y_test,pred_testdata))
-
 
 #---------------------------------------------------------------------------------------------------
 #8 Inference
-# 
+# In Medium.Com
 #---------------------------------------------------------------------------------------------------
